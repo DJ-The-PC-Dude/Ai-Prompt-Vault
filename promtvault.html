@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Prompt Vault</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1f2937;
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen flex flex-col items-center p-6 font-sans">
+  <div class="w-full max-w-2xl space-y-6">
+
+    <!-- Header -->
+    <div class="text-center">
+      <h1 class="text-4xl font-extrabold text-blue-400 tracking-tight mb-1">🧠 AI Prompt Vault</h1>
+      <p class="text-gray-400 text-sm">Save, view, and copy your favorite AI prompts instantly.</p>
+    </div>
+
+    <!-- Prompt Form -->
+    <form id="promptForm" class="space-y-4 bg-gray-800 p-6 rounded-xl shadow-xl border border-gray-700" aria-label="Save AI prompt form">
+      <div>
+        <label for="promptName" class="block text-sm font-medium text-gray-300 mb-1">Prompt Name</label>
+        <input
+          type="text"
+          id="promptName"
+          required
+          class="w-full px-4 py-2 rounded-lg bg-gray-900 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-required="true"
+          aria-describedby="promptNameHelp"
+          autocomplete="off"
+          autofocus
+        />
+      </div>
+      <div>
+        <label for="promptText" class="block text-sm font-medium text-gray-300 mb-1">Prompt Text</label>
+        <textarea
+          id="promptText"
+          required
+          rows="5"
+          class="w-full px-4 py-2 rounded-lg bg-gray-900 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          aria-required="true"
+          aria-describedby="promptTextHelp"
+        ></textarea>
+      </div>
+      <button
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-700 transition px-4 py-2 rounded-lg font-semibold"
+        aria-label="Save prompt"
+      >
+        💾 Save Prompt
+      </button>
+    </form>
+
+    <!-- Prompt List -->
+    <div>
+      <h2 class="text-xl font-semibold text-blue-300 mb-2">📁 Saved Prompts</h2>
+      <div id="promptList" class="space-y-2 max-h-[300px] overflow-y-auto pr-2" aria-live="polite" aria-relevant="additions removals">
+        <!-- JS will populate here -->
+      </div>
+    </div>
+
+    <!-- Clear Button -->
+    <button
+      type="button"
+      onclick="clearPrompts()"
+      class="w-full bg-red-600 hover:bg-red-700 transition px-4 py-2 rounded-lg font-semibold mt-4"
+      aria-label="Clear all saved prompts"
+    >
+      🧨 Clear All Prompts
+    </button>
+  </div>
+
+  <script>
+    const form = document.getElementById('promptForm');
+    const nameInput = document.getElementById('promptName');
+    const textInput = document.getElementById('promptText');
+    const promptList = document.getElementById('promptList');
+
+    // Load prompts as an array of objects [{name, text}, ...]
+    function loadPrompts() {
+      try {
+        return JSON.parse(localStorage.getItem('prompts')) || [];
+      } catch {
+        return [];
+      }
+    }
+
+    function savePrompts(prompts) {
+      localStorage.setItem('prompts', JSON.stringify(prompts));
+    }
+
+    function savePrompt(name, text) {
+      const prompts = loadPrompts();
+
+      // Optional: avoid exact duplicate name + text pairs
+      if (!prompts.some(p => p.name === name && p.text === text)) {
+        prompts.push({ name, text });
+        savePrompts(prompts);
+      }
+      renderPrompts();
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        alert('Failed to copy prompt to clipboard.');
+        return false;
+      }
+    }
+
+    function renderPrompts() {
+      const prompts = loadPrompts();
+      promptList.innerHTML = '';
+
+      if (prompts.length === 0) {
+        promptList.innerHTML = `<p class="text-sm text-gray-500">No prompts saved yet.</p>`;
+        return;
+      }
+
+      prompts.forEach(({ name, text }, index) => {
+        const div = document.createElement('div');
+        div.className =
+          "bg-gray-800 p-3 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-700 transition relative group select-text";
+        div.tabIndex = 0; // make it focusable
+        div.setAttribute('role', 'button');
+        div.setAttribute('aria-label', `Copy prompt named ${name} to clipboard`);
+
+        // Tooltip
+        const tooltip = document.createElement('span');
+        tooltip.className = "absolute right-3 top-3 text-xs text-gray-400 group-hover:text-blue-400 transition-opacity duration-200 opacity-100 group-focus:opacity-100";
+        tooltip.textContent = 'Click to copy';
+
+        // Name label
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'text-white font-medium';
+        nameSpan.textContent = name;
+
+        div.appendChild(nameSpan);
+        div.appendChild(tooltip);
+
+        // Copy on click or key enter/space
+        async function copyHandler() {
+          const success = await copyToClipboard(text);
+          if (!success) return;
+
+          tooltip.textContent = '✅ Copied!';
+          tooltip.classList.remove('text-gray-400');
+          tooltip.classList.add('text-green-400');
+
+          setTimeout(() => {
+            tooltip.textContent = 'Click to copy';
+            tooltip.classList.remove('text-green-400');
+            tooltip.classList.add('text-gray-400');
+          }, 1500);
+        }
+
+        div.addEventListener('click', copyHandler);
+        div.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            copyHandler();
+          }
+        });
+
+        promptList.appendChild(div);
+      });
+    }
+
+    function clearPrompts() {
+      if (confirm("Delete ALL saved prompts?")) {
+        localStorage.removeItem('prompts');
+        renderPrompts();
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const text = textInput.value.trim();
+
+      if (name && text) {
+        savePrompt(name, text);
+        form.reset();
+        nameInput.focus();
+      }
+    });
+
+    renderPrompts();
+  </script>
+</body>
+</html>
